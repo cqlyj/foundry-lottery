@@ -38,6 +38,11 @@ contract Raffle is VRFConsumerBaseV2 {
     error Raffle__NotEnoughEthSent();
     error Raffle__TranferFailed();
     error Raffle__RaffleNotOpen();
+    error Raffle__UpkeepNotNeeded(
+        uint256 balance,
+        uint256 playersLength,
+        uint256 raffleState
+    );
 
     /** Type declarations */
     enum RaffleState {
@@ -105,12 +110,37 @@ contract Raffle is VRFConsumerBaseV2 {
         emit EnteredRaffle(msg.sender);
     }
 
-    function pickWinner() external {
-        if (block.timestamp - s_lastTimeStamp <= i_interval) {
-            revert();
+    /**
+     * @dev This is the function that the chainlink Automation node will call
+     * to check if the contract needs upkeep
+     * The following should be true for the contract to need upkeep:
+     * 1. The time interval has passed
+     * 2. The raffle is in the OPEN state
+     * 3. The contract has ETH
+     * 4. The subscription has enough LINK
+     */
+    function checkUpkeep(
+        bytes memory /* checkData */
+    ) public view returns (bool upKeepNeeded, bytes memory /* performData */) {
+        bool timeHasPassed = (block.timestamp - s_lastTimeStamp >= i_interval);
+        bool isOpen = RaffleState.OPEN == s_raffleState;
+        bool hasBalance = address(this).balance > 0;
+        bool hasPlayers = s_players.length > 0;
+        upKeepNeeded = timeHasPassed && isOpen && hasBalance && hasPlayers;
+        return (upKeepNeeded, "0x0");
+    }
+
+    function performUpkeep(bytes calldata /* performData */) external {
+        (bool upkeepNeeded, ) = checkUpkeep("");
+        if (!upkeepNeeded) {
+            revert Raffle__UpkeepNotNeeded(
+                address(this).balance,
+                s_players.length,
+                uint256(s_raffleState)
+            );
         }
         s_raffleState = RaffleState.CALCULATING;
-        uint256 requestId = i_vrfCoordinator.requestRandomWords(
+        i_vrfCoordinator.requestRandomWords(
             i_gasLine,
             i_subscriptionId,
             REQUEST_CONFIRMATIONS,
@@ -120,7 +150,7 @@ contract Raffle is VRFConsumerBaseV2 {
     }
 
     function fulfillRandomWords(
-        uint256 requestId,
+        uint256 /* requestId */,
         uint256[] memory randomWords
     ) internal override {
         uint256 indexOfWinner = randomWords[0] % s_players.length;
