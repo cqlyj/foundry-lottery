@@ -74,6 +74,9 @@ contract Raffle is VRFConsumerBaseV2 {
     event EnteredRaffle(address indexed player);
     event PickedWinner(address indexed winner);
 
+    // This is redundant event, as the Chainlink VRF contract emits a similar event
+    event RequestedRaffleWinner(uint256 indexed requestId);
+
     constructor(
         uint256 entranceFee,
         uint256 interval,
@@ -140,13 +143,17 @@ contract Raffle is VRFConsumerBaseV2 {
             );
         }
         s_raffleState = RaffleState.CALCULATING;
-        i_vrfCoordinator.requestRandomWords(
+        uint256 requestId = i_vrfCoordinator.requestRandomWords(
             i_gasLine,
             i_subscriptionId,
             REQUEST_CONFIRMATIONS,
             i_callbackGasLimit,
             NUM_WORDS
         );
+
+        // This is a redundant event, as the Chainlink VRF contract emits a similar event
+        // Here emit the event just to show how to write the test for event emission
+        emit RequestedRaffleWinner(requestId);
     }
 
     function fulfillRandomWords(
