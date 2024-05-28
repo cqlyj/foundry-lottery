@@ -102,9 +102,27 @@ contract RaffleTest is Test {
         assert(upkeepNeeded == false);
     }
 
-    // testCheckUpkeepReturnsFalseIfEnoughTimeHasNotPassed
+    function testCheckUpkeepReturnsFalseIfEnoughTimeHasNotPassed() public {
+        vm.prank(PLAYER);
+        raffle.enterRaffle{value: entranceFee}();
+        vm.warp(block.timestamp + interval - 1);
+        vm.roll(block.number + 1);
 
-    // testCheckUpkeepReturnsTrueWhenParametersAreGood
+        (bool upkeepNeeded, ) = raffle.checkUpkeep("");
+
+        assert(upkeepNeeded == false);
+    }
+
+    function testCheckUpkeepReturnsTrueWhenParametersAreGood() public {
+        vm.prank(PLAYER);
+        raffle.enterRaffle{value: entranceFee}();
+        vm.warp(block.timestamp + interval + 1);
+        vm.roll(block.number + 1);
+
+        (bool upkeepNeeded, ) = raffle.checkUpkeep("");
+
+        assert(upkeepNeeded == true);
+    }
 
     function testPerformUpkeepCanOnlyRunIfCheckUpkeepReturnsTrue() public {
         vm.prank(PLAYER);
